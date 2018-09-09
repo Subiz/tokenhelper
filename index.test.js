@@ -38,6 +38,34 @@ test('loop', async () => {
 	expect(err).toBe('err44')
 })
 
+test('just refresh state', done => {
+	let token = new index.Token({ dry: true, })
+	var pm1 = token.refresh()
+	var pm2 = token.refresh()
+
+	token.JUST_REFRESHED(
+		(state, param) => {
+			expect(param.now).toBe(1000)
+			expect(param.then).toBeGreaterThan(2000)
+
+			expect(state).toBe(index.JUST_REFRESHED)
+			var pm3 = token.refresh()
+			token.JUST_REFRESHED(
+				state => {
+					expect(state).toBe(index.NORMAL)
+
+					pm1
+						.then(pm2)
+						.then(pm3)
+						.then(done)
+				},
+				{ now: 0, then: 6000, }
+			)
+		},
+		{ now: 1000, then: 2000, }
+	)
+})
+
 test('normal state', done => {
 	let token = new index.Token({ dry: true, })
 
