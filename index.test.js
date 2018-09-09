@@ -37,3 +37,38 @@ test('loop', async () => {
 	})
 	expect(err).toBe('err44')
 })
+
+test('normal state', done => {
+	let token = new index.Token({ dry: true, })
+
+	token.NORMAL((state, param, delay) => {
+		expect(state).toBe(index.NORMAL)
+
+		let token = new index.Token({ dry: true, })
+		token.refresh()
+		token.NORMAL((state, param, delay) => {
+			expect(state).toBe(index.REFRESHING)
+			expect(delay).toBeUndefined()
+			done()
+		})
+	})
+})
+
+test('dead state', done => {
+	let token = new index.Token({ dry: true, })
+	let rpm = token.refresh() // return a promise so we can evaluate later
+
+	token.DEAD(state => {
+		expect(state).toBe(index.DEAD)
+
+		let token = new index.Token({ dry: true, })
+		let pm = token.restart()
+		token.DEAD(state => {
+			expect(state).toBe(index.NORMAL)
+			rpm.then(err => {
+				expect(err).toContain('dead')
+				pm.then(done)
+			})
+		})
+	})
+})

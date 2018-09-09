@@ -65,19 +65,18 @@ class Token {
 	}
 
 	NORMAL (transition) {
-		let req = this.refreshQ.pop()
-		if (req) transition(REFRESHING, req)
+		if (this.refreshQ.length > 0) transition(REFRESHING)
 		else transition(NORMAL, undefined, 100)
 	}
 
 	JUST_REFRESHED (transition, { now, then, }) {
-		this.refreshQ.forEach(req => req.resolve([this.actoken, this.rftoken, ]))
+		this.refreshQ.forEach(req => req.resolve())
 		this.refreshQ = []
 		if (then - now > 5000) transition(NORMAL)
 		else transition(JUST_REFRESHED, { now, then: then + 100 || 100, }, 100)
 	}
 
-	REFRESHING (transition, req) {
+	REFRESHING (transition) {
 		this.api
 			.query({ 'refresh-token': this.rftoken, })
 			.send()
@@ -99,10 +98,10 @@ class Token {
 	}
 
 	DEAD (transition) {
-		this.refreshQ.map(req => req.resolve([undefined, undefined, 'dead', ]))
+		this.refreshQ.map(req => req.resolve('dead'))
 		this.refreshQ = []
 
-		this.restartQ.map(req => req.resolve)
+		this.restartQ.map(req => req.resolve())
 		if (this.restartQ.length > 0) {
 			this.restartQ = []
 			transition(NORMAL)
@@ -110,4 +109,12 @@ class Token {
 	}
 }
 
-module.exports = { Token, loop4ever, run, }
+module.exports = {
+	Token,
+	loop4ever,
+	run,
+	DEAD,
+	REFRESHING,
+	NORMAL,
+	JUST_REFRESHED,
+}
