@@ -19,49 +19,42 @@ const run = (self, state, param) =>
 			return
 		}
 		f((nextstate, nextparam, delay) => {
-			[state, param, ] = [nextstate, nextparam, ]
-			resolve(delay)
+			[state, param] = [nextstate, nextparam]
+			resolve(parseInt(delay) || 1)
 		}, param)
 	})
 
 class Token {
-	constructor ({ tokenep, ajax, store, dry, }) {
-		this.api = (ajax || gAjax)
-			.post(tokenep)
-			.setParser('json')
-			.setContentType('form')
+	constructor ({ tokenep, ajax, store, dry }) {
+		let api = (ajax || gAjax).post(tokenep).setParser('json')
+		this.api = api.setContentType('form')
 		this.refreshQ = []
 		this.restartQ = []
 		this.store = store || gStore
 		dry || run(this, NORMAL)
 	}
 
-	loadStore () {
-		return this.store.get('subiz_token') || {}
+	getStore () {
+		return this.store.get('sbztokn') || {}
 	}
 
-	get () {
-		const lcs = this.loadStore()
-		if (!this.actoken) this.actoken = lcs.access_token
-		if (!this.rftoken) this.rftoken = lcs.refresh_token
-		return [this.actoken, this.rftoken, ]
+	load () {
+		if (!this.actoken) this.actoken = this.getStore().access_token
+		if (!this.rftoken) this.rftoken = this.getStore().refresh_token
+		return { access_token: this.actoken, refresh_token: this.rftoken }
 	}
 
 	set (actoken, rftoken) {
-		this.actoken = actoken
-		this.rftoken = rftoken
-		this.store.set('subiz_token', {
-			refresh_token: rftoken,
-			access_token: actoken,
-		})
+		[this.actoken, this.rftoken] = [actoken, rftoken]
+		this.store.set('sbztokn', { refresh_token: rftoken, access_token: actoken })
 	}
 
 	refresh () {
-		return new Promise(resolve => this.refreshQ.push({ resolve, }))
+		return new Promise(resolve => this.refreshQ.push({ resolve }))
 	}
 
 	restart () {
-		return new Promise(resolve => this.restartQ.push({ resolve, }))
+		return new Promise(resolve => this.restartQ.push({ resolve }))
 	}
 
 	NORMAL (transition) {
@@ -69,32 +62,50 @@ class Token {
 		else transition(NORMAL, undefined, 100)
 	}
 
-	JUST_REFRESHED (transition, { now, then, }) {
+	JUST_REFRESHED (transition, { now, then }) {
 		this.refreshQ.forEach(req => req.resolve())
 		this.refreshQ = []
 		if (then - now > 5000) transition(NORMAL)
-		else transition(JUST_REFRESHED, { now, then: then + 100 || 100, }, 100)
+		else transition(JUST_REFRESHED, { now, then: then + 100 || 100 }, 100)
+	}
+
+	pureRefresh (now, rftoken, gtok, code, body, err) {
+		if (err || code > 499) {
+			/* network error or server error */
+			return [{ refresh_token: rftoken }, REFRESHING, undefined, 1000]
+		}
+		if (code !== 200) {
+			if (gtok.refresh_token && gtok.refresh_token !== rftoken) {
+				/* someone have exchanged the token */
+				return [gtok, JUST_REFRESHED, { now }]
+			}
+			return [{}, DEAD]
+		}
+
+		try {
+			let tk = JSON.parse(body)
+			let s = { access_token: tk.access_token, refresh_token: tk.refresh_token }
+			return [s, JUST_REFRESHED, { now }]
+		} catch (e) {
+			return [undefined, undefined, undefined, undefined, e]
+		}
 	}
 
 	REFRESHING (transition) {
-		this.api
-			.query({ 'refresh-token': this.rftoken, })
-			.send()
-			.then(([code, body, err, ]) => {
-				if (err || code !== 200) {
-					let st = this.loadStore()
-					if (st.refresh_token && st.refresh_token !== this.rftoken) {
-						/* someone have exchanged the token */
-						this.set(st.access_token, st.refresh_token)
-						return transition(JUST_REFRESHED, { now: new Date(), })
-					}
-					return transition(DEAD)
-				}
-
-				/* parsebody */
-				this.set(body.access_token, body.refresh_token)
-				return transition(JUST_REFRESHED, { now: new Date(), })
-			})
+		let rftok = this.load().refresh_token
+		if (!rftok) return transition(DEAD)
+		let pm = this.api.query({ 'refresh-token': rftok }).send()
+		pm.then(([code, body, err]) => {
+			let [gtok, now] = [this.getStore(), new Date()]
+			let [t, s, p, d, e] = this.pureRefresh(now, rftok, gtok, code, body, err)
+			if (e) {
+				console.error(e)
+				transition(DEAD)
+				return
+			}
+			this.set(t.access_token, t.refresh_token)
+			transition(s, p, d)
+		})
 	}
 
 	DEAD (transition) {
