@@ -3,7 +3,7 @@ manage subiz access token and refresh token for clients
 
 # Install
 ```
-npm i --save @subiz/tokenhelper
+npm i --save tokenhelper
 ```
 
 # Usage
@@ -14,10 +14,24 @@ const th = require('@subiz/tokenhelper')
 let token = new th.Token()
 // user login => got tokens
 token.restart()
-token.set(accesstoken, refreshtoken)
+token.set({
+	account_id: '123',
+	id: '123',
+	email: 'abc@gmail.com',
+	access_token, refreshtoken,
+})
 
 // use the token
+
+var token = token.get()
+if (token.error) {
+	throw token.error
+}
+
 // ...
+apireq.setQuery({access_token: token.access_token}).send()
+// ...
+
 // token expired
 let err = await token.refresh()
 if (err) throw err
