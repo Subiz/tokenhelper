@@ -109,11 +109,11 @@ class Token {
 			return transition('DEAD', tk.error)
 		}
 
-		let pm = this.api.query({ 'refresh-token': tk.refresh_token }).send()
+		let pm = this.api.setQuery({ 'refresh-token': tk.refresh_token }).send()
 		pm.then(([code, body, err]) => {
 			let [gtk, now] = [getStore(), new Date()]
 			let [t, s, p, d] = this.pureRefresh(now, tk, gtk, code, body, err)
-			this.set(t)
+			if (t) this.set(t)
 			transition(s, p, d)
 		})
 	}
