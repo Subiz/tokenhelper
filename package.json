@@ -1,22 +1,21 @@
 {
 	"name": "tokenhelper",
-	"version": "1.1.3",
+	"version": "1.1.4",
 	"description": "Token helper",
-	"main": "./dist/ajax.js",
+	"main": "./index.js",
 	"scripts": {
 		"test": "jest"
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+ssh://git@github.com/subiz/ajax.git"
+		"url": "git+ssh://git@github.com/subiz/tokenhelper.git"
 	},
 	"author": "Pham Kieu Thanh",
 	"license": "MIT",
-	"homepage": "https://bitbucket.org/subiz/ajax#readme",
+	"homepage": "https://bitbucket.org/subiz/tokenhelper#readme",
 	"devDependencies": {
 		"jest": "^23.5.0",
-		"node-fetch": "^2.2.0",
-		"uglifyjs-webpack-plugin": "^1.3.0"
+		"node-fetch": "^2.2.0"
 	},
 	"dependencies": {
 		"@subiz/ajax": "^1.0.12",
