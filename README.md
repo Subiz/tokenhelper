@@ -14,12 +14,7 @@ const th = require('@subiz/tokenhelper')
 let token = new th.Token()
 // user login => got tokens
 token.restart()
-token.set({
-	account_id: '123',
-	id: '123',
-	email: 'abc@gmail.com',
-	access_token, refreshtoken,
-})
+token.set({account_id,agent_id,session,access_token, refreshtoken})
 
 // use the token
 
@@ -35,7 +30,8 @@ apireq.setQuery({access_token: token.access_token}).send()
 // token expired
 let err = await token.refresh()
 if (err) throw err
-[accesstoken, refreshtoken] = token.load()
+// retrive new token
+{accesstoken, refreshtoken} = token.get()
 
 ```
 
