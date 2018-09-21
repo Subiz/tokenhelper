@@ -1,22 +1,22 @@
-const store = require('store')
-const gAjax = require('@subiz/ajax')
+var store = require('store')
+var gAjax = require('@subiz/ajax')
 
-const loop4everInternal = (f, r) =>
+var loop4everInternal = (f, r) =>
 	f((delay, err) => (err ? r(err) : setTimeout(loop4everInternal, delay, f, r)))
 
-const loop4ever = f => new Promise(resolve => loop4everInternal(f, resolve))
+var loop4ever = f => new Promise(resolve => loop4everInternal(f, resolve))
 
 function isAccountChange (a, b) {
 	if (!a) return b
-	return a.account_id != b.account_id || a.agent_id != b.agent_id
+	return a.account_id !== b.account_id || a.agent_id !== b.agent_id
 }
 
-const getStore = _ => store.get('sbztokn') || {}
-const setStore = (k, v) => store.set(k, v)
+var getStore = _ => store.get('sbztokn') || {}
+var setStore = (k, v) => store.set(k, v)
 
-const run = (self, state, param) =>
+var run = (self, state, param) =>
 	loop4ever(resolve => {
-		const f = self[state]
+		var f = self[state]
 		if (typeof f !== 'function') {
 			resolve(undefined, `invalid state '${state}', param ${param}`)
 			return
@@ -29,15 +29,15 @@ const run = (self, state, param) =>
 
 class Token {
 	constructor ({ tokenep, ajax, dry }) {
-		let api = (ajax || gAjax).post(tokenep).setParser('json')
+		var api = (ajax || gAjax).post(tokenep).setParser('json')
 		this.api = api.setContentType('form')
 		this.refreshQ = []
 		this.restartQ = []
-		if (dry) run(this, 'NORMAL')
+		if (!dry) run(this, 'NORMAL')
 	}
 
 	get () {
-		const store = getStore()
+		var store = getStore()
 		if (isAccountChange(this.data, store)) {
 			return { error: 'account_changed' }
 		}
@@ -47,8 +47,8 @@ class Token {
 		return Object.assign({}, this.data, store)
 	}
 
-	set ({ account_id, agent_id, email, access_token, refresh_token }) {
-		this.data = { account_id, agent_id, email, access_token, refresh_token }
+	set ({ account_id, agent_id, access_token, refresh_token, session }) {
+		this.data = { account_id, agent_id, access_token, refresh_token, session }
 		setStore('sbztokn', this.data)
 	}
 
@@ -74,7 +74,7 @@ class Token {
 
 	pureRefresh (now, ltk, gtk, code, body, err) {
 		if (err || code > 499) {
-			/* network error or server error */
+			// network error or server error
 			return [ltk, 'REFRESHING', undefined, 1000]
 		}
 		if (code !== 200) {
@@ -82,20 +82,21 @@ class Token {
 				return [undefined, 'DEAD', 'account_changed']
 			}
 			if (gtk.refresh_token && gtk.refresh_token !== ltk.refresh_token) {
-				/* someone have exchanged the token */
+				// someone have exchanged the token
 				return [gtk, 'JUST_REFRESHED', { now }]
 			}
 			return [undefined, 'DEAD', 'expired']
 		}
 
 		try {
-			let tk = JSON.parse(body)
-			let newtok = {
+			var tk = JSON.parse(body)
+			var newtok = {
+				// dont access invalid param from server
 				access_token: tk.access_token,
 				refresh_token: tk.refresh_token,
 				account_id: tk.account_id,
 				id: tk.id,
-				email: tk.email,
+				session: tk.session,
 			}
 			return [newtok, 'JUST_REFRESHED', { now }]
 		} catch (e) {
@@ -104,15 +105,17 @@ class Token {
 	}
 
 	REFRESHING (transition) {
-		let tk = this.get()
+		var tk = this.get()
 		if (tk.error) {
 			return transition('DEAD', tk.error)
 		}
-
-		let pm = this.api.setQuery({ 'refresh-token': tk.refresh_token }).send()
+		var pm = this.api.send({
+			refresh_token: tk.refresh_token,
+			session: tk.session,
+		})
 		pm.then(([code, body, err]) => {
-			let [gtk, now] = [getStore(), new Date()]
-			let [t, s, p, d] = this.pureRefresh(now, tk, gtk, code, body, err)
+			var [gtk, now] = [getStore(), new Date()]
+			var [t, s, p, d] = this.pureRefresh(now, tk, gtk, code, body, err)
 			if (t) this.set(t)
 			transition(s, p, d)
 		})
