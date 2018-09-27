@@ -1,6 +1,12 @@
 var store = require('store')
 var gAjax = require('@subiz/ajax')
 
+function resolveReq (msg) {
+	return function (req) {
+		req.resolve(msg)
+	}
+}
+
 function loop4everInternal (f, r) {
 	return f(function (delay, err) {
 		return err ? r(err) : setTimeout(loop4everInternal, delay, f, r)
@@ -41,66 +47,81 @@ function run (self, state, param) {
 	})
 }
 
+function makeQueue () {
+	var q = []
+
+	var f = function () {
+		return new Promise(function (resolve) {
+			q.push({ resolve: resolve })
+		})
+	}
+
+	f.resolve = function (msg) {
+		q.forEach(resolveReq(msg))
+	}
+
+	f.reset = function () {
+		q = []
+	}
+
+	f.len = function () {
+		return q.length
+	}
+
+	return f
+}
+
+function getStoreFromData (data) {
+	var store = getStore()
+	if (isAccountChange(data, store)) {
+		return { error: 'account_changed' }
+	}
+	if (!data.refresh_token && !store.refresh_token) {
+		return { error: 'uninitialized' }
+	}
+	return Object.assign({}, data, store)
+}
+
+function filterData (param) {
+	return {
+		account_id: param.account_id,
+		agent_id: param.agent_id,
+		access_token: param.access_token,
+		refresh_token: param.refresh_token,
+		session: param.session,
+	}
+}
+
 function Token (param) {
-	var tokenep = param.tokenep
-	var ajax = param.ajax
-	var dry = param.dry
-
-	var api = (ajax || gAjax).post(tokenep).setParser('json')
-	this.api = api.setContentType('form')
-	this.refreshQ = []
-	this.restartQ = []
-	if (!dry) run(this, 'NORMAL')
-
 	var me = this
+	var api = (param.ajax || gAjax).post(param.tokenep).setParser('json')
+	this.api = api.setContentType('form')
+	this.refresh = makeQueue()
+	this.restart = makeQueue()
+
 	this.get = function () {
-		var store = getStore()
-		if (isAccountChange(me.data, store)) {
-			return { error: 'account_changed' }
-		}
-		if (!me.data.refresh_token && !store.refresh_token) {
-			return { error: 'uninitialized' }
-		}
-		return Object.assign({}, me.data, store)
+		return getStoreFromData(me.data)
 	}
 
 	this.set = function (param) {
-		me.data = {
-			account_id: param.account_id,
-			agent_id: param.agent_id,
-			access_token: param.access_token,
-			refresh_token: param.refresh_token,
-			session: param.session,
-		}
+		me.data = filterData(param)
 		setStore('sbztokn', me.data)
 	}
 
-	this.refresh = function () {
-		return new Promise(function (resolve) {
-			me.refreshQ.push({ resolve: resolve })
-		})
-	}
-
-	this.restart = function () {
-		return new Promise(function (resolve) {
-			me.restartQ.push({ resolve: resolve })
-		})
-	}
-
 	this.NORMAL = function (transition) {
-		if (me.refreshQ.length > 0) transition('REFRESHING')
+		if (me.refresh.len() > 0) transition('REFRESHING')
 		else transition('NORMAL', undefined, 100)
 	}
 
 	this.JUST_REFRESHED = function (transition, param) {
 		var now = param.now
 		var then = param.then
-		me.refreshQ.forEach(function (req) {
-			return req.resolve()
-		})
-		me.refreshQ = []
+		me.refresh.resolve()
+		me.refresh.reset()
 		if (then - now > 5000) transition('NORMAL')
-		else { transition('JUST_REFRESHED', { now: now, then: then + 100 || 100 }, 100) }
+		else {
+			transition('JUST_REFRESHED', { now: now, then: then + 100 || 100 }, 100)
+		}
 	}
 
 	this.pureRefresh = function (now, ltk, gtk, code, body, err) {
@@ -157,19 +178,17 @@ function Token (param) {
 	}
 
 	this.DEAD = function (transition, msg) {
-		me.refreshQ.map(function (req) {
-			return req.resolve('dead ' + msg)
-		})
-		me.refreshQ = []
+		me.refresh.resolve('dead ' + msg)
+		me.refresh.reset()
 
-		me.restartQ.map(function (req) {
-			return req.resolve()
-		})
-		if (me.restartQ.length > 0) {
-			me.restartQ = []
+		me.restart.resolve()
+		if (me.restart.len() > 0) {
+			me.restart.reset()
 			transition('NORMAL')
 		} else transition('DEAD', undefined, 100)
 	}
+
+	if (!param.dry) run(this, 'NORMAL')
 }
 
 module.exports = { Token: Token, loop4ever: loop4ever, run: run }
