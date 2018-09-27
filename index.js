@@ -20,8 +20,7 @@ function loop4ever (f) {
 }
 
 function isAccountChange (a, b) {
-	if (!a) return b
-	return a.account_id !== b.account_id || a.agent_id !== b.agent_id
+	return a ? a.account_id !== b.account_id || a.agent_id !== b.agent_id : false
 }
 
 function getStore () {
@@ -76,6 +75,8 @@ function getStoreFromData (data) {
 	if (isAccountChange(data, store)) {
 		return { error: 'account_changed' }
 	}
+	if (!data) data = store
+	if (!data) return {}
 	if (!data.refresh_token && !store.refresh_token) {
 		return { error: 'uninitialized' }
 	}
@@ -93,6 +94,7 @@ function filterData (param) {
 }
 
 function Token (param) {
+	if (!param) param = {}
 	var me = this
 	var api = (param.ajax || gAjax).post(param.tokenep).setParser('json')
 	this.api = api.setContentType('form')
