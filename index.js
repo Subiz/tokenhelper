@@ -20,7 +20,7 @@ function loop4ever (f) {
 }
 
 function isAccountChange (a, b) {
-	return a ? a.account_id !== b.account_id || a.agent_id !== b.agent_id : false
+	return a && b && (a.account_id !== b.account_id || a.agent_id !== b.agent_id)
 }
 
 function getStore () {
@@ -126,38 +126,6 @@ function Token (param) {
 		}
 	}
 
-	this.pureRefresh = function (now, ltk, gtk, code, body, err) {
-		if (err || code > 499) {
-			// network error or server error
-			return [ltk, 'REFRESHING', undefined, 1000]
-		}
-		if (code !== 200) {
-			if (isAccountChange(ltk, gtk)) {
-				return [undefined, 'DEAD', 'account_changed']
-			}
-			if (gtk.refresh_token && gtk.refresh_token !== ltk.refresh_token) {
-				// someone have exchanged the token
-				return [gtk, 'JUST_REFRESHED', { now: now }]
-			}
-			return [undefined, 'DEAD', 'expired']
-		}
-
-		try {
-			var tk = JSON.parse(body)
-			var newtok = {
-				// dont access invalid param from server
-				access_token: tk.access_token,
-				refresh_token: tk.refresh_token,
-				account_id: tk.account_id,
-				id: tk.id,
-				session: tk.session,
-			}
-			return [newtok, 'JUST_REFRESHED', { now: now }]
-		} catch (e) {
-			return [undefined, 'DEAD', e]
-		}
-	}
-
 	this.REFRESHING = function (transition) {
 		var tk = me.get()
 		if (tk.error) {
@@ -173,8 +141,9 @@ function Token (param) {
 			var err = ret[2]
 			var gtk = getStore()
 			var now = new Date()
-			var out = me.pureRefresh(now, tk, gtk, code, body, err)
+			var out = pureRefresh(now, tk, gtk, code, body, err)
 			if (out[0]) me.set(out[0])
+
 			transition(out[1], out[2], out[3])
 		})
 	}
@@ -193,4 +162,35 @@ function Token (param) {
 	if (!param.dry) run(this, 'NORMAL')
 }
 
-module.exports = { Token: Token, loop4ever: loop4ever, run: run }
+function pureRefresh (now, ltk, gtk, code, body, err) {
+	if (err || code > 499) {
+		// network error or server error
+		return [ltk, 'REFRESHING', err || body, 1000]
+	}
+	if (code !== 200) {
+		if (isAccountChange(ltk, gtk)) {
+			return [undefined, 'DEAD', 'account_changed']
+		}
+		if (gtk.refresh_token && gtk.refresh_token !== ltk.refresh_token) {
+			// someone have exchanged the token
+			return [gtk, 'JUST_REFRESHED', { now: now }]
+		}
+		return [undefined, 'DEAD', 'expired']
+	}
+
+	var newtok = {
+		access_token: body.access_token,
+		refresh_token: body.refresh_token,
+		account_id: body.account_id,
+		id: body.id,
+		session: body.session,
+	}
+	return [newtok, 'JUST_REFRESHED', { now: now }]
+}
+
+module.exports = {
+	Token: Token,
+	loop4ever: loop4ever,
+	run: run,
+	pureRefresh: pureRefresh,
+}

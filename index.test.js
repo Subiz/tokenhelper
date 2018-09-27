@@ -41,7 +41,7 @@ test('loop', async () => {
 test('pure refresh should return REFRESHING on network err', () => {
 	let token = new index.Token({ dry: true })
 	let now = new Date()
-	let [t, s, _, d] = token.pureRefresh(
+	let [t, s, _, d] = index.pureRefresh(
 		now,
 		{ refresh_token: 'rf_123' },
 		null,
@@ -58,7 +58,7 @@ test('pure refresh should return REFRESHING on server err', () => {
 	let token = new index.Token({ dry: true })
 	let now = new Date()
 
-	let [t, s, _, d] = token.pureRefresh(
+	let [t, s, _, d] = index.pureRefresh(
 		now,
 		{ refresh_token: 'rf_123' },
 		null,
@@ -72,7 +72,7 @@ test('pure refresh should return REFRESHING on server err', () => {
 test('pure refresh should return DEAD on token expired', () => {
 	let token = new index.Token({ dry: true })
 	let now = new Date()
-	let [t, s, p, _] = token.pureRefresh(
+	let [t, s, p, _] = index.pureRefresh(
 		now,
 		{ refresh_token: 'rf_123', account_id: 'thanh' },
 		{ refresh_token: 'rf_123', account_id: 'thanh' },
@@ -87,7 +87,7 @@ test('pure refresh should return DEAD on token expired', () => {
 test('pure refresh should return DEAD on change account', () => {
 	let token = new index.Token({ dry: true })
 	let now = new Date()
-	let [t, s, p, _] = token.pureRefresh(
+	let [t, s, p, _] = index.pureRefresh(
 		now,
 		{ refresh_token: 'rf_123', account_id: 'thanh' },
 		{ refresh_token: 'rf_1234', account_id: 'van' },
@@ -101,7 +101,7 @@ test('pure refresh should return DEAD on change account', () => {
 test('pure refresh should return JUST_REFRESHED on new token from other process in same account', () => {
 	let token = new index.Token({ dry: true })
 	let now = new Date()
-	let [t, s, p] = token.pureRefresh(
+	let [t, s, p] = index.pureRefresh(
 		now,
 		{ refresh_token: 'rf_123', account_id: 'van' },
 		{ refresh_token: 'rf_1234', account_id: 'van' },
@@ -115,37 +115,21 @@ test('pure refresh should return JUST_REFRESHED on new token from other process 
 test('pure refresh should return JUST_REFRESHED on new token', () => {
 	let token = new index.Token({ dry: true })
 	let now = new Date()
-	let [t, s, p] = token.pureRefresh(
+	let [t, s, p] = index.pureRefresh(
 		now,
 		{ refresh_token: 'rf_123', account_id: 'van' },
 		{ refresh_token: 'rf_123', account_id: 'van' },
 		200,
-		JSON.stringify({
+		{
 			account_id: 'van',
 			access_token: 'ac_2108',
 			refresh_token: 'rf_2910',
-		})
+		}
 	)
 	expect(t.refresh_token).toBe('rf_2910')
 	expect(t.access_token).toBe('ac_2108')
 	expect(s).toBe('JUST_REFRESHED')
 	expect(p).toEqual({ now })
-})
-
-test('pure refresh should return err on invalid json', () => {
-	let token = new index.Token({ dry: true })
-	let now = new Date()
-
-	let [t, s, p] = token.pureRefresh(
-		now,
-		'rf_123',
-		{ refresh_token: 'rf_1234' },
-		200,
-		'adf'
-	)
-	expect(s).toBe('DEAD')
-	expect(t).toBeUndefined()
-	expect(p + '').toContain('JSON')
 })
 
 test('just refresh state', done => {
