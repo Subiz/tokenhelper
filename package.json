@@ -1,6 +1,6 @@
 {
 	"name": "tokenhelper",
-	"version": "1.1.7",
+	"version": "1.1.8",
 	"description": "Token helper",
 	"main": "./index.js",
 	"scripts": {
@@ -18,7 +18,7 @@
 		"node-fetch": "^2.2.0"
 	},
 	"dependencies": {
-		"@subiz/ajax": "^1.0.12",
+		"@subiz/ajax": "^1.0.13",
 		"store": "^2.0.12"
 	}
 }
