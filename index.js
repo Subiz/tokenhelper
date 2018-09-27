@@ -94,10 +94,12 @@ function filterData (param) {
 }
 
 function Token (param) {
-	if (!param) param = {}
+	param = param || {}
 	var me = this
-	var api = (param.ajax || gAjax).post(param.tokenep).setParser('json')
-	this.api = api.setContentType('form')
+	this.api = (param.ajax || gAjax)
+		.post(param.tokenep)
+		.setParser('json')
+		.setContentType('form')
 	this.refresh = makeQueue()
 	this.restart = makeQueue()
 
@@ -116,47 +118,36 @@ function Token (param) {
 	}
 
 	this.JUST_REFRESHED = function (transition, param) {
-		var now = param.now
-		var then = param.then
 		me.refresh.resolve()
 		me.refresh.reset()
-		if (then - now > 5000) transition('NORMAL')
-		else {
-			transition('JUST_REFRESHED', { now: now, then: then + 100 || 100 }, 100)
-		}
+		param = param || { now: 0, then: 0 }
+		param.then = param.then + 100 || 100
+		if (param.then - param.now > 5000) transition('NORMAL')
+		else transition('JUST_REFRESHED', param, 100)
 	}
 
 	this.REFRESHING = function (transition) {
 		var tk = me.get()
-		if (tk.error) {
-			return transition('DEAD', tk.error)
-		}
-		var pm = me.api.send({
-			refresh_token: tk.refresh_token,
-			session: tk.session,
-		})
-		pm.then(function (ret) {
-			var code = ret[0]
-			var body = ret[1]
-			var err = ret[2]
-			var gtk = getStore()
-			var now = new Date()
-			var out = pureRefresh(now, tk, gtk, code, body, err)
-			if (out[0]) me.set(out[0])
-
-			transition(out[1], out[2], out[3])
-		})
+		if (tk.error) return transition('DEAD', tk.error)
+		me.api
+			.send({ refresh_token: tk.refresh_token, session: tk.session })
+			.then(function (ret) {
+				var gtk = getStore()
+				var now = new Date()
+				var out = pureRefresh(now, tk, gtk, ret[0], ret[1], ret[2])
+				if (out[0]) me.set(out[0])
+				transition(out[1], out[2], out[3])
+			})
 	}
 
 	this.DEAD = function (transition, msg) {
 		me.refresh.resolve('dead ' + msg)
 		me.refresh.reset()
 
+		if (!me.restart.len()) return transition('DEAD', undefined, 100)
 		me.restart.resolve()
-		if (me.restart.len() > 0) {
-			me.restart.reset()
-			transition('NORMAL')
-		} else transition('DEAD', undefined, 100)
+		me.restart.reset()
+		transition('NORMAL')
 	}
 
 	if (!param.dry) run(this, 'NORMAL')
@@ -171,8 +162,8 @@ function pureRefresh (now, ltk, gtk, code, body, err) {
 		if (isAccountChange(ltk, gtk)) {
 			return [undefined, 'DEAD', 'account_changed']
 		}
+		// someone have exchanged the token
 		if (gtk.refresh_token && gtk.refresh_token !== ltk.refresh_token) {
-			// someone have exchanged the token
 			return [gtk, 'JUST_REFRESHED', { now: now }]
 		}
 		return [undefined, 'DEAD', 'expired']
