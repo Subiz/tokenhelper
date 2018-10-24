@@ -1,5 +1,5 @@
 var store = require('store')
-var gAjax = require('@subiz/ajax')
+var gAjax = require('@subiz/ajax/index.js')
 
 function resolveReq (msg) {
 	return function (req) {
@@ -126,7 +126,7 @@ function Token (param) {
 		else transition('JUST_REFRESHED', param, 100)
 	}
 
-	this.REFRESHING = function (transition) {
+	this.REFRESHING = function (transition, param) {
 		var tk = me.get()
 		if (tk.error) return transition('DEAD', tk.error)
 		me.api
@@ -134,7 +134,7 @@ function Token (param) {
 			.then(function (ret) {
 				var gtk = getStore()
 				var now = new Date()
-				var out = pureRefresh(now, tk, gtk, ret[0], ret[1], ret[2])
+				var out = pureRefresh(now, tk, gtk, ret[0], ret[1], ret[2], param)
 				if (out[0]) me.set(out[0])
 				transition(out[1], out[2], out[3])
 			})
@@ -153,10 +153,12 @@ function Token (param) {
 	if (!param.dry) run(this, 'NORMAL')
 }
 
-function pureRefresh (now, ltk, gtk, code, body, err) {
+function pureRefresh (now, ltk, gtk, code, body, err, param) {
 	if (err || code > 499) {
 		// network error or server error
-		return [ltk, 'REFRESHING', err || body, 1000]
+		var retry = param && param.retry || 0
+		if (retry > 5) return [undefined, 'DEAD', 'server_down']
+		return [ltk, 'REFRESHING', { retry: retry + 1, err: err, body: body }, 1000]
 	}
 	if (code !== 200) {
 		if (isAccountChange(ltk, gtk)) {

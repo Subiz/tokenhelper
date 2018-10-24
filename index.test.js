@@ -194,3 +194,41 @@ test('dead state', done => {
 		})
 	})
 })
+
+test('max retry refreshing failed', done => {
+	let [_, state, err] = index.pureRefresh(0, 0, 0, 500, undefined, undefined, {
+		retry: 7,
+	})
+	expect(state).toBe('DEAD')
+	expect(err).toBe('server_down')
+
+	let token = new index.Token({ dry: true })
+	token.set({ access_token: 'a', refresh_token: 'r' })
+	token.api = { send: () => new Promise(rs => rs([500])) }
+	token.REFRESHING(
+		(state, param) => {
+			expect(state).toBe('DEAD')
+			expect(param).toBe('server_down')
+			done()
+		},
+		{ retry: 6 }
+	)
+})
+
+test('retry refreshing', done => {
+	let [_, state, p] = index.pureRefresh(0, 0, 0, 500, undefined, undefined, {
+		retry: 2,
+	})
+	expect(state).toBe('REFRESHING')
+	expect(p.retry).toBe(3)
+
+	let token = new index.Token({ dry: true })
+	token.set({ access_token: 'a', refresh_token: 'r' })
+	token.api = { send: () => new Promise(rs => rs([500])) }
+	token.REFRESHING(
+		(state, param) => {
+			expect(state).toBe('REFRESHING')
+			expect(param.retry).toBe(1)
+			done()
+		})
+})
