@@ -99,7 +99,7 @@ function Token (param) {
 	this.api = (param.ajax || gAjax)
 		.post(param.tokenep)
 		.setParser('json')
-		.setContentType('form')
+		.contentTypeForm()
 	this.refresh = makeQueue()
 	this.restart = makeQueue()
 
@@ -156,7 +156,7 @@ function Token (param) {
 function pureRefresh (now, ltk, gtk, code, body, err, param) {
 	if (err || code > 499) {
 		// network error or server error
-		var retry = param && param.retry || 0
+		var retry = (param && param.retry) || 0
 		if (retry > 5) return [undefined, 'DEAD', 'server_down']
 		return [ltk, 'REFRESHING', { retry: retry + 1, err: err, body: body }, 1000]
 	}
