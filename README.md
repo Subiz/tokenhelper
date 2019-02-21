@@ -12,10 +12,10 @@ npm i --save tokenhelper
 # Standalone
 ```js
 const th = require('tokenhelper')
-let helper = th.newHelper({tokenep: "https://subiz.com/oauth/"})
+let token = th.createHelper({tokenep: "https://subiz.com/oauth/"})
 
 // user login => got tokens
-token.reset({account_id,agent_id,session,access_token, refreshtoken})
+token.reset({account_id, agent_id, access_token, refreshtoken, expires_in})
 
 // use the token
 
