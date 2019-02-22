@@ -7,14 +7,14 @@ function isAccountChange (a, b) {
 
 // isGoodToken tells whether a token has not expired or not about to expired
 function isGoodToken (created, expireInSec) {
-	var end = new Date(created).getTime() / 1000
-	end += expireInSec
+	var endSec = new Date(created).getTime() / 1000
+	endSec += expireInSec
 	// make token expire 60s sooner than it time
 	// since time between client and server cannot perfectly synchronized
 	// this reduce the chance that we tell an already expired token (in server) is good
-	end = end - 60
-	var now = Date().getTime() / 1000
-	return end < now
+	endSec = endSec - 60
+	var nowSec = Date.now() / 1000
+	return endSec < nowSec
 }
 
 // isFunction tells whether f is a javascript function
@@ -34,7 +34,9 @@ function loop (func) {
 	})
 }
 
-function createHelper (param) {
+// Token define new token helper object
+
+function Token(param) {
 	param = param || {}
 	var me = this
 	me.api = (param.ajax || gAjax)
@@ -55,7 +57,7 @@ function createHelper (param) {
 			}
 
 			var retry = 5
-			var p = { refresh_token: tk.refresh_token, session: tk.session }
+			var p = { refresh_token: tk.refresh_token }
 			var term = me.term
 			loop(function (continueLoop) {
 				me.api.send(p).then(function (code, body, err) {
@@ -96,7 +98,6 @@ function createHelper (param) {
 			agent_id: body.agent_id,
 			access_token: body.access_token,
 			refresh_token: body.refresh_token,
-			session: body.session,
 			created: new Date(),
 			expires_in: body.expires_in, // 3600
 		}
@@ -105,6 +106,6 @@ function createHelper (param) {
 	}
 }
 
-module.exports = { createHelper: createHelper }
+module.exports = { Token: Token }
 
 var STOREID = 'sbztokn'
