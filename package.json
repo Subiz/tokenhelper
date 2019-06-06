@@ -1,6 +1,6 @@
 {
 	"name": "tokenhelper",
-	"version": "1.1.12",
+	"version": "1.1.13",
 	"description": "Token helper",
 	"main": "./index.js",
 	"scripts": {
@@ -13,12 +13,8 @@
 	"author": "Pham Kieu Thanh",
 	"license": "MIT",
 	"homepage": "https://bitbucket.org/subiz/tokenhelper#readme",
-	"devDependencies": {
-		"jest": "^24.1.0",
-		"node-fetch": "^2.3.0"
-	},
 	"dependencies": {
-		"@subiz/ajax": "^1.0.21",
+		"@subiz/ajax": "^1.0.26",
 		"store": "^2.0.12"
 	}
 }
